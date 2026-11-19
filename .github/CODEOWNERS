@@ -1,0 +1,9 @@
+# Replace with real GitHub handles/teams. Every PR needs a human owner's approval.
+*                         @OWNER_TEAM
+/specs/                   @OWNER_TEAM
+/specs/**/migrations/     @OWNER_TEAM
+/specs/**/contracts/      @OWNER_TEAM
+/app.config.ts            @OWNER_TEAM
+/eas.json                 @OWNER_TEAM
+/.github/                 @OWNER_TEAM
+/.claude/                 @OWNER_TEAM

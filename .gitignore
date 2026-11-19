@@ -39,3 +39,14 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# secrets / store credentials
+.env
+.env.*
+!.env.example
+google-service-account*.json
+CLAUDE.local.md
+.claude/settings.local.json
+
+# test coverage
+coverage/

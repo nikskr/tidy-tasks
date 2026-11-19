@@ -1,0 +1,47 @@
+name: Release
+# main → preview build for internal testers.
+# tag v* → production build for both stores + submit to TestFlight / Play internal track.
+# Promotion to production, rollout % and App Review submission stay manual (docs/playbook/06).
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile
+        type: choice
+        options: [preview, production]
+        default: preview
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'preview' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: npm run verify
+
+      - name: Preview build
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.profile == 'preview') }}
+        run: eas build --profile preview --platform all --non-interactive --no-wait
+
+      - name: Check tag matches app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          APP_VERSION=$(APP_VARIANT=production npx expo config --json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          [ "v$APP_VERSION" = "${GITHUB_REF_NAME}" ] || { echo "::error::Tag ${GITHUB_REF_NAME} != app version $APP_VERSION"; exit 1; }
+
+      - name: Production build + submit
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.profile == 'production') }}
+        run: eas build --profile production --platform all --non-interactive --auto-submit

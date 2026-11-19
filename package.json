@@ -1,22 +1,58 @@
 {
-  "name": "mobile-todo-app",
+  "name": "tidy-tasks",
   "version": "1.0.0",
-  "main": "index.ts",
-  "dependencies": {
-    "expo": "~58.0.26",
-    "expo-status-bar": "~58.0.5",
-    "react": "19.3.0",
-    "react-native": "0.88.1"
-  },
-  "devDependencies": {
-    "@types/react": "~19.3.0",
-    "typescript": "~6.0.3"
-  },
+  "main": "expo-router/entry",
+  "private": true,
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "doctor": "expo-doctor",
+    "verify": "npm run lint && npm run typecheck && npm run test -- --ci",
+    "icons": "node scripts/generate-icons.mjs",
+    "build:preview": "eas build --profile preview --platform all",
+    "build:production": "eas build --profile production --platform all",
+    "submit:production": "eas submit --profile production --platform all --latest"
   },
-  "private": true
+  "dependencies": {
+    "@sentry/react-native": "~8.28.0",
+    "expo": "~58.0.26",
+    "expo-application": "~58.1.2",
+    "expo-constants": "~58.0.16",
+    "expo-crypto": "~58.0.8",
+    "expo-dev-client": "~58.0.21",
+    "expo-linking": "~58.0.17",
+    "expo-router": "~58.0.32",
+    "expo-splash-screen": "~58.0.14",
+    "expo-sqlite": "~58.0.18",
+    "expo-status-bar": "~58.0.5",
+    "expo-system-ui": "~58.0.7",
+    "expo-updates": "~58.0.22",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1"
+  },
+  "devDependencies": {
+    "@react-native/jest-preset": "^0.88.1",
+    "@types/jest": "^30.0.0",
+    "@types/react": "~19.3.0",
+    "@types/sql.js": "^1.4.11",
+    "eslint": "^9.39.0",
+    "eslint-config-expo": "~58.0.4",
+    "jest": "^30.0.0",
+    "jest-expo": "~58.0.15",
+    "sql.js": "^1.16.0",
+    "typescript": "~6.0.3"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": ["**/*.test.[jt]s?(x)"],
+    "testPathIgnorePatterns": ["/node_modules/", "/.claude/"]
+  }
 }

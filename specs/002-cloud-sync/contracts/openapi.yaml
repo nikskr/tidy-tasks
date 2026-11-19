@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  title: Tidy Tasks API
+  version: 1.0.0-draft
+  description: |
+    Contract for feature 002 (cloud sync). Contract-first: change this file in its own PR
+    before any implementation. Compatibility rules: docs/playbook/04-backend-api-sql-integrations.md §4.2
+servers:
+  - url: https://api.staging.tidytasks.example/v1
+  - url: https://api.tidytasks.example/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/apple:
+    post:
+      operationId: signInWithApple   # BE-3
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identityToken]
+              properties:
+                identityToken: { type: string }
+                fullName: { type: string, nullable: true }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /auth/refresh:
+    post:
+      operationId: refreshSession    # BE-3
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /tasks/changes:
+    get:
+      operationId: getTaskChanges    # BE-4
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+      responses:
+        '200':
+          description: Changes since cursor (including tombstones)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tasks, nextCursor, hasMore]
+                properties:
+                  tasks:
+                    type: array
+                    items: { $ref: '#/components/schemas/Task' }
+                  nextCursor: { type: string }
+                  hasMore: { type: boolean }
+        '401': { $ref: '#/components/responses/Problem' }
+        '426': { $ref: '#/components/responses/Problem' }
+  /tasks/batch:
+    post:
+      operationId: pushTasks         # BE-4
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tasks]
+              properties:
+                tasks:
+                  type: array
+                  maxItems: 500
+                  items: { $ref: '#/components/schemas/Task' }
+      responses:
+        '200':
+          description: Accepted; server returns the winning version of each task
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items: { $ref: '#/components/schemas/Task' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '426': { $ref: '#/components/responses/Problem' }
+  /account:
+    delete:
+      operationId: deleteAccount     # BE-5
+      responses:
+        '202': { description: Deletion scheduled (completed within 24 h) }
+        '401': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  parameters:
+    AppVersion:
+      name: X-App-Version
+      in: header
+      required: true
+      schema: { type: string, example: 1.1.0 }
+  schemas:
+    Task:
+      type: object
+      required: [id, title, completed, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        completed: { type: boolean }
+        createdAt: { type: integer, description: epoch ms }
+        updatedAt: { type: integer, description: epoch ms (client clock) }
+        deletedAt: { type: [integer, 'null'], description: tombstone }
+        serverUpdatedAt: { type: integer, readOnly: true }
+      additionalProperties: true   # clients MUST ignore unknown fields
+  responses:
+    Session:
+      description: Session tokens
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [accessToken, refreshToken, expiresIn]
+            properties:
+              accessToken: { type: string }
+              refreshToken: { type: string }
+              expiresIn: { type: integer }
+    Problem:
+      description: RFC 9457 problem
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            properties:
+              type: { type: string }
+              title: { type: string }
+              status: { type: integer }
+              detail: { type: string }

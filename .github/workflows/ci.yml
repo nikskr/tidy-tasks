@@ -1,0 +1,43 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test -- --ci
+      - name: Expo doctor
+        run: npx expo-doctor
+      - name: Production bundle + size budget (≤ 6 MB per platform)
+        env:
+          APP_VARIANT: production
+        run: |
+          npx expo export --platform android --platform ios --output-dir dist
+          for f in dist/_expo/static/js/*/*.hbc; do
+            size=$(stat -c%s "$f"); echo "$f: $size bytes"
+            [ "$size" -le 6291456 ] || { echo "::error::Bundle over budget: $f"; exit 1; }
+          done
+      - name: Secrets grep
+        run: |
+          if git grep -nE '(sk-ant-|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|sntrys_)' -- ':!*.md'; then
+            echo "::error::Possible secret committed"; exit 1
+          fi
