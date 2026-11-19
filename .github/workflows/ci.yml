@@ -38,6 +38,7 @@ jobs:
           done
       - name: Secrets grep
         run: |
-          if git grep -nE '(sk-ant-|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|sntrys_)' -- ':!*.md'; then
+          # This file contains the pattern itself, so exclude it from the scan.
+          if git grep -nE '(sk-ant-|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|sntrys_)' -- ':!*.md' ':!.github/workflows/ci.yml'; then
             echo "::error::Possible secret committed"; exit 1
           fi
