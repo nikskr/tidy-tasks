@@ -1,10 +1,13 @@
 name: Release
-# main → preview build for internal testers.
-# tag v* → production build for both stores + submit to TestFlight / Play internal track.
+# Manual "Run workflow" → EAS build for the chosen profile + platform (preview by default, Android).
+# Tag v*             → production build + auto-submit (TestFlight / Play internal track).
+#                      Platforms for tag builds come from repo variable RELEASE_PLATFORMS
+#                      (default "android"; set it to "all" once Apple credentials exist in EAS).
+# Pushes to main do NOT build — CI covers them, and this saves EAS build quota.
 # Promotion to production, rollout % and App Review submission stay manual (docs/playbook/06).
+# Requires repo secret EXPO_TOKEN (expo.dev → Account settings → Access tokens).
 on:
   push:
-    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -13,13 +16,30 @@ on:
         type: choice
         options: [preview, production]
         default: preview
+      platform:
+        description: Platform
+        type: choice
+        options: [android, ios, all]
+        default: android
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'preview' }}
+    env:
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      PROFILE: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || inputs.profile }}
+      PLATFORM: ${{ startsWith(github.ref, 'refs/tags/v') && (vars.RELEASE_PLATFORMS || 'android') || inputs.platform }}
     steps:
+      - name: Check EXPO_TOKEN is configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing repo secret EXPO_TOKEN. Create a token at expo.dev → Account settings → Access tokens, then add it under GitHub repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -32,16 +52,16 @@ jobs:
       - run: npm ci
       - run: npm run verify
 
-      - name: Preview build
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.profile == 'preview') }}
-        run: eas build --profile preview --platform all --non-interactive --no-wait
-
       - name: Check tag matches app version
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.IS_TAG == 'true'
         run: |
           APP_VERSION=$(APP_VARIANT=production npx expo config --json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
           [ "v$APP_VERSION" = "${GITHUB_REF_NAME}" ] || { echo "::error::Tag ${GITHUB_REF_NAME} != app version $APP_VERSION"; exit 1; }
 
-      - name: Production build + submit
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.profile == 'production') }}
-        run: eas build --profile production --platform all --non-interactive --auto-submit
+      - name: Preview build (${{ env.PLATFORM }})
+        if: env.PROFILE == 'preview'
+        run: eas build --profile preview --platform "$PLATFORM" --non-interactive --no-wait
+
+      - name: Production build + submit (${{ env.PLATFORM }})
+        if: env.PROFILE == 'production'
+        run: eas build --profile production --platform "$PLATFORM" --non-interactive --auto-submit

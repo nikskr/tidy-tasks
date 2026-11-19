@@ -88,8 +88,8 @@ Store APIs (App Store Connect API, Google Play Developer API) are used **only th
 | PR opened/updated | `ci.yml` | lint, typecheck, test, expo-doctor, secrets grep |
 | PR opened | `claude.yml` | Claude reviews against the review-pr checklist, posts comments |
 | `@claude` comment on issue/PR | `claude.yml` | Agent implements / answers, pushes to a branch, opens PR |
-| Merge to `main` | `release.yml` (preview job) | EAS Build `preview` → internal testers |
-| Tag `v*` pushed | `release.yml` (production job) | EAS Build `production` for both platforms + `eas submit` to TestFlight & Play internal track |
+| Manual "Run workflow" | `release.yml` | EAS Build for the chosen profile + platform (default: `preview`, Android) → internal testers |
+| Tag `v*` pushed | `release.yml` | EAS Build `production` for `RELEASE_PLATFORMS` (repo variable; default `android`, set `all` once Apple credentials exist) + auto-submit to TestFlight / Play internal track |
 | Nightly (optional, `/schedule`) | Scheduled cloud agent | Summarise new Sentry issues + store reviews into a GitHub issue |
 
 Required GitHub secrets: `EXPO_TOKEN`, `ANTHROPIC_API_KEY` (or Claude GitHub App auth).
